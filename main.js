@@ -134,7 +134,7 @@ async function runFeature(mode, userText) {
   state.busy = true;
   try {
     const settings = store.getSettings();
-    const llm = createLLM(settings);
+    const llm = createLLM(settings, (message) => send('status', { message }));
     const userBubble = def.userBubble !== null ? def.userBubble : (mode === 'ask' ? userText : null);
     send('llm:start', { userBubble, small: !!def.small });
 
@@ -180,6 +180,10 @@ ipcMain.on('log', (_e, msg) => console.log('[renderer]', msg));
 function registerShortcuts() {
   globalShortcut.register('CommandOrControl+Return', () => runFeature('assist', ''));
   globalShortcut.register('CommandOrControl+H', () => runFeature('leetcode', ''));
+  globalShortcut.register('CommandOrControl+\\', () => {
+    if (!win) return;
+    if (win.isVisible()) win.hide(); else win.showInactive();
+  });
   globalShortcut.register('CommandOrControl+Shift+X', () => app.quit());
 }
 

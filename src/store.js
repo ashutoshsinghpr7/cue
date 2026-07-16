@@ -8,12 +8,15 @@ const FILE = path.join(app.getPath('userData'), 'cue-data.json');
 const DEFAULTS = {
   provider: 'openai',
   smart: false,
-  apiKeys: { openai: '', anthropic: '', gemini: '', deepgram: '' },
+  apiKeys: { openai: '', anthropic: '', gemini: '', deepseek: '', groq: '', deepgram: '' },
   models: {
     openai: { fast: 'gpt-4o-mini', smart: 'gpt-4o' },
     anthropic: { fast: 'claude-3-5-haiku-latest', smart: 'claude-3-5-sonnet-latest' },
-    gemini: { fast: 'gemini-1.5-flash', smart: 'gemini-1.5-pro' }
-  }
+    gemini: { fast: 'gemini-1.5-flash', smart: 'gemini-1.5-pro' },
+    deepseek: { fast: 'deepseek-chat', smart: 'deepseek-v4-pro' },
+    groq: { fast: 'llama-3.3-70b-versatile', smart: 'meta-llama/llama-4-maverick-17b-128e-instruct' }
+  },
+  visionFallbackModel: 'meta-llama/llama-4-scout-17b-16e-instruct'
 };
 
 let data = null;

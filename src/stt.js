@@ -1,15 +1,20 @@
-// Speech-to-text factory. Decoupled from the LLM provider because Anthropic has
-// no audio API — we transcribe with whatever audio-capable key is available, and
+// Speech-to-text factory. Decoupled from the LLM provider because Anthropic and
+// DeepSeek have no audio API — we transcribe with whatever audio-capable key is
+// available (Groq Whisper first: free, then OpenAI Whisper, then Gemini) and
 // fall back across providers. Returns { text, provider } or { text:'', error }.
 const { pcmToWav } = require('./wav');
 
-async function transcribeOpenAI(apiKey, wav, model) {
+async function transcribeOpenAI(apiKey, wav, model, baseURL) {
   const OpenAI = require('openai');
   const toFile = OpenAI.toFile || require('openai/uploads').toFile;
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, baseURL });
   const file = await toFile(wav, 'audio.wav', { type: 'audio/wav' });
   const res = await client.audio.transcriptions.create({ file, model: model || 'whisper-1' });
   return (res.text || '').trim();
+}
+
+function transcribeGroq(apiKey, wav) {
+  return transcribeOpenAI(apiKey, wav, 'whisper-large-v3-turbo', 'https://api.groq.com/openai/v1');
 }
 
 async function transcribeGemini(apiKey, wav) {
@@ -28,6 +33,7 @@ async function transcribeGemini(apiKey, wav) {
 function createSTT(settings) {
   const keys = settings.apiKeys || {};
   const chain = [];
+  if (keys.groq) chain.push({ p: 'groq', fn: (wav) => transcribeGroq(keys.groq, wav) });
   if (keys.openai) chain.push({ p: 'openai', fn: (wav) => transcribeOpenAI(keys.openai, wav, settings.sttModel) });
   if (keys.gemini) chain.push({ p: 'gemini', fn: (wav) => transcribeGemini(keys.gemini, wav) });
 
