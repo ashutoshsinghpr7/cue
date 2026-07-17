@@ -1,3 +1,4 @@
+const DEBUG = false; // Set to false to disable debug logging
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, session, desktopCapturer, shell } = require('electron');
 const path = require('path');
 const store = require('./src/store');
@@ -83,6 +84,7 @@ async function flushChannel(channel) {
     if (res.text && res.text.trim()) {
       const turn = { channel, text: res.text.trim(), ts: Date.now() };
       transcript.push(turn);
+      if (DEBUG) console.log(`[TRANSCRIPT] ${channel === 'you' ? 'You' : 'Them'}:`, turn.text);
       send('transcript', turn);
     }
   } catch (e) {
@@ -128,11 +130,11 @@ function setCapturing(active) {
 
 // -------- feature runner --------
 async function runFeature(mode, userText) {
-  // console.log('[DEBUG MAIN] runFeature called:', { mode, userText, isBusy: state.busy });
+  if (DEBUG) console.log('[DEBUG MAIN] runFeature called:', { mode, userText, isBusy: state.busy });
   if (state.busy) return;
   const def = MODES[mode];
   if (!def) {
-    // console.log('[DEBUG MAIN] mode not found:', mode);
+    if (DEBUG) console.log('[DEBUG MAIN] mode not found:', mode);
     return;
   }
   state.busy = true;
@@ -140,37 +142,37 @@ async function runFeature(mode, userText) {
     const settings = store.getSettings();
     const llm = createLLM(settings);
     const userBubble = def.userBubble !== null ? def.userBubble : (mode === 'ask' ? userText : null);
-    // console.log('[DEBUG MAIN] LLM settings loaded:', { provider: settings.provider, smart: settings.smart });
+    if (DEBUG) console.log('[DEBUG MAIN] LLM settings loaded:', { provider: settings.provider, smart: settings.smart });
     send('llm:start', { userBubble, small: !!def.small });
 
     if (!llm.ready) {
-      // console.log('[DEBUG MAIN] LLM not ready (missing key or model).');
+      if (DEBUG) console.log('[DEBUG MAIN] LLM not ready (missing key or model).');
       send('llm:error', { message: 'Add your ' + settings.provider + ' API key in Settings (gear icon) to start. Model: ' + (llm.model || 'unset') + '.' });
       return;
     }
 
     let imageDataUrl = null;
     if (def.needsScreen) {
-      // console.log('[DEBUG MAIN] Feature needs screen. Capturing screenshot...');
+      if (DEBUG) console.log('[DEBUG MAIN] Feature needs screen. Capturing screenshot...');
       try { 
         imageDataUrl = await captureScreenshot(); 
-        // console.log('[DEBUG MAIN] Screenshot captured successfully (length:', imageDataUrl.length, ')');
+        if (DEBUG) console.log('[DEBUG MAIN] Screenshot captured successfully (length:', imageDataUrl.length, ')');
       }
       catch (e) { 
-        // console.error('[DEBUG MAIN] Screenshot capture failed:', e);
+        if (DEBUG) console.error('[DEBUG MAIN] Screenshot capture failed:', e);
         send('status', { message: 'Screen capture needs permission — grant Screen Recording to cue in System Settings.' }); 
       }
     }
 
     const built = def.build({ transcript, userText: userText || '' });
-    // console.log('[DEBUG MAIN] Built prompt. Starting LLM stream...');
+    if (DEBUG) console.log('[DEBUG MAIN] Built prompt. Starting LLM stream...');
     const fullText = await llm.stream({
       system: def.system,
       turns: [{ role: 'user', text: built }],
       imageDataUrl,
       onToken: (t) => send('llm:token', { text: t })
     });
-    // console.log('[DEBUG MAIN] Full LLM Output:\n', fullText);
+    if (DEBUG) console.log('[DEBUG MAIN] Full LLM Output:\n', fullText);
     send('llm:done', {});
   } catch (e) {
     send('llm:error', { message: 'Error: ' + (e && e.message ? e.message : String(e)) });
